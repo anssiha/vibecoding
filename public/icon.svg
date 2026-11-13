@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="62%">
+      <stop offset="0" stop-color="#2a1630"/>
+      <stop offset="1" stop-color="#0d0d12"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb703"/>
+      <stop offset=".55" stop-color="#ff2d4b"/>
+      <stop offset="1" stop-color="#b14aed"/>
+    </linearGradient>
+    <radialGradient id="core" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#ff8a9b"/>
+      <stop offset=".5" stop-color="#ff2d4b"/>
+      <stop offset="1" stop-color="#b3122c"/>
+    </radialGradient>
+    <linearGradient id="liquor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd166"/>
+      <stop offset=".6" stop-color="#ffb703"/>
+      <stop offset="1" stop-color="#e8710a"/>
+    </linearGradient>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- guitar pick (the main "finger" ring) -->
+  <path d="M256 402C232 402 212 378 196 352C150 282 108 228 110 180C112 126 168 102 256 102C344 102 400 126 402 180C404 228 362 282 316 352C300 378 280 402 256 402Z" fill="#ff2d4b" fill-opacity=".16" stroke="url(#ring)" stroke-width="22" stroke-linejoin="round" filter="url(#glow)"/>
+  <!-- soft red glow behind the glass -->
+  <circle cx="256" cy="232" r="86" fill="url(#core)" opacity=".45" filter="url(#glow)"/>
+  <g transform="translate(256 232) scale(.82) translate(-256 -259)">
+  <path d="M196 176H316L290 332Q288 342 278 342H234Q224 342 222 332Z" fill="#ffffff" fill-opacity=".14" stroke="#ffffff" stroke-opacity=".7" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M202 212H310L291 326H221Z" fill="url(#liquor)"/>
+  <path d="M202 212H310" stroke="#fff3c4" stroke-width="5" stroke-linecap="round" opacity=".9"/>
+  <circle cx="246" cy="290" r="6" fill="#fff" opacity=".45"/>
+  <circle cx="268" cy="268" r="4" fill="#fff" opacity=".4"/>
+  <circle cx="258" cy="305" r="3.5" fill="#fff" opacity=".35"/>
+  <path d="M212 192L229 300" stroke="#fff" stroke-width="8" stroke-linecap="round" opacity=".4"/>
+  </g>
+  <!-- small fingers around -->
+  <circle cx="70" cy="104" r="22" fill="none" stroke="#3ad1ff" stroke-width="8" filter="url(#glow)"/>
+  <circle cx="446" cy="116" r="18" fill="none" stroke="#7cff6b" stroke-width="7" filter="url(#glow)"/>
+  <circle cx="436" cy="388" r="24" fill="none" stroke="#ffb703" stroke-width="8" filter="url(#glow)"/>
+  <circle cx="74" cy="356" r="16" fill="none" stroke="#b14aed" stroke-width="7" filter="url(#glow)"/>
+</svg>

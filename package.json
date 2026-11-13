@@ -6,14 +6,19 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "icons": "pwa-assets-generator"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
+    "@vite-pwa/assets-generator": "^2.0.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.8"
+    "vite": "^8.3.8",
+    "vite-plugin-pwa": "^2.0.0",
+    "workbox-build": "^7.4.1",
+    "workbox-window": "^7.4.1"
   }
 }

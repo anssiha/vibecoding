@@ -1,5 +1,6 @@
 import confetti from 'canvas-confetti';
 import './style.css';
+import { maybeShowUpdate, setBusyCheck } from './pwa';
 import { blip, boom, doom, DOOM_HIT_MS, isMuted, setMuted, tick, unlockAudio } from './sound';
 import { AMOUNTS, DRINKS, loadSettings, rollServing, saveSettings } from './settings';
 
@@ -52,6 +53,7 @@ function showIdle(): void {
     '<div class="hint">Laittakaa sormet ruudulle!</div>',
   );
   document.body.classList.remove('playing');
+  maybeShowUpdate();
 }
 
 function vibrate(p: number | number[]): void {
@@ -317,4 +319,6 @@ document.getElementById('settings')!.addEventListener('click', () => {
 document.getElementById('closeSheet')!.addEventListener('click', () => { sheet.hidden = true; });
 sheet.addEventListener('click', e => { if (e.target === sheet) sheet.hidden = true; });
 
+// Don't pop the update toast while fingers are on the screen.
+setBusyCheck(() => state !== 'idle');
 showIdle();

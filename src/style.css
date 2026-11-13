@@ -136,3 +136,23 @@ body.playing .corner, body.playing #foot { opacity: 0; pointer-events: none; tra
   background: linear-gradient(90deg, #ffb703, #ff2d4b); color: #fff;
   font-size: 18px; font-weight: 800; cursor: pointer;
 }
+
+#update {
+  position: fixed; z-index: 30;
+  left: 50%; transform: translateX(-50%);
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 10px 10px 16px; border-radius: 999px;
+  background: #24243a; border: 1px solid #ffffff22;
+  box-shadow: 0 8px 30px #000a;
+  font-size: 15px; white-space: nowrap;
+  animation: slideUpToast .3s ease-out;
+}
+#update[hidden] { display: none; }
+@keyframes slideUpToast { from { transform: translate(-50%, 150%); } }
+#update button {
+  border: 0; border-radius: 999px; cursor: pointer; color: #fff;
+  font-size: 15px; font-weight: 800; padding: 8px 14px;
+  background: linear-gradient(90deg, #ffb703, #ff2d4b);
+}
+#update #updateLater { background: transparent; color: var(--muted); padding: 8px 10px; font-weight: 400; }

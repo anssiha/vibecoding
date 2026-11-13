@@ -7,6 +7,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <title>Viimeinen Rokkari pystyssä</title>
+  <link rel="icon" href="favicon.ico" sizes="48x48">
+  <link rel="icon" href="icon.svg" sizes="any" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon-180x180.png">
+  <meta name="apple-mobile-web-app-title" content="Rokkari">
 </head>
 <body>
   <div id="stage"></div>
@@ -23,6 +27,11 @@
       <div id="amountChips" class="chips"></div>
       <button id="closeSheet" type="button">Valmis</button>
     </div>
+  </div>
+  <div id="update" role="status" hidden>
+    <span>Uusi versio saatavilla</span>
+    <button id="updateBtn" type="button">Päivitä</button>
+    <button id="updateLater" type="button" aria-label="Sulje">✕</button>
   </div>
   <div id="foot">Juo vastuullisesti 🍻</div>
   <script type="module" src="/src/main.ts"></script>
