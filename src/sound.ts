@@ -1,7 +1,7 @@
 // Metal-flavoured synth sound effects with the Web Audio API (no audio files needed).
 //
-// Signal flow:  clean sounds ----------------------> master -> compressor -> speakers
-//               distorted sounds -> "amp" (clipper) -> master
+// Signal flow:  clean sounds ---------------------------------------> master -> compressor -> limiter -> speakers
+//               distorted sounds -> amp (clipper) -> cabinet filters -> master
 // The compressor keeps the loud hits from clipping on phone speakers.
 
 let ctx: AudioContext | null = null;
@@ -10,7 +10,9 @@ let amp: WaveShaperNode | null = null;
 let noise: AudioBuffer | null = null;
 let muted = false;
 
-const E2 = 82.41; // low E, the "metal" root note
+// Root note E3. Phone speakers can't reproduce much below ~150 Hz, so the "heavy" notes
+// live here (and the kick has a clicky attack) instead of down at 40-80 Hz.
+const ROOT = 164.81;
 
 function distortionCurve(amount: number): Float32Array<ArrayBuffer> {
   const n = 1024;
@@ -28,18 +30,43 @@ export function unlockAudio(): void {
     ctx = new AudioContext();
 
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -18;
-    comp.ratio.value = 8;
+    comp.threshold.value = -14;
+    comp.knee.value = 12;
+    comp.ratio.value = 6;
+    comp.attack.value = 0.003;
+    comp.release.value = 0.15;
+    // Brick-wall limiter at the very end so nothing ever clips on a phone speaker.
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -4;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.001;
+    limiter.release.value = 0.1;
     master = ctx.createGain();
-    master.gain.value = 0.8;
-    master.connect(comp).connect(ctx.destination);
+    master.gain.value = 0.7;
+    // Web Audio compressors add automatic makeup gain, so pin the final ceiling below 0 dBFS.
+    const ceiling = ctx.createGain();
+    ceiling.gain.value = 0.74;
+    master.connect(comp).connect(limiter).connect(ceiling).connect(ctx.destination);
 
+    // Guitar amp: moderate clipping, then a "speaker cabinet" that removes sub-bass mud
+    // and the fizzy top end, with a little boost in the mids where phones are loudest.
     amp = ctx.createWaveShaper();
-    amp.curve = distortionCurve(60);
+    amp.curve = distortionCurve(20);
     amp.oversample = '4x';
+    const lowCut = ctx.createBiquadFilter();
+    lowCut.type = 'highpass';
+    lowCut.frequency.value = 110;
+    const highCut = ctx.createBiquadFilter();
+    highCut.type = 'lowpass';
+    highCut.frequency.value = 4200;
+    const mids = ctx.createBiquadFilter();
+    mids.type = 'peaking';
+    mids.frequency.value = 1200;
+    mids.gain.value = 4;
     const ampOut = ctx.createGain();
-    ampOut.gain.value = 0.5; // distortion is loud, so bring it back down
-    amp.connect(ampOut).connect(master);
+    ampOut.gain.value = 0.7;
+    amp.connect(lowCut).connect(highCut).connect(mids).connect(ampOut).connect(master);
 
     // One shared burst of white noise for cymbals and screams
     const len = ctx.sampleRate * 2;
@@ -73,17 +100,16 @@ function tone(
   osc.stop(t + dur + 0.02);
 }
 
-/** Bass drum: a quick pitch drop. */
-function kick(delay = 0, vol = 0.9): void {
-  tone(160, 0.14, 'sine', vol, 45, delay);
+/** Bass drum: a body that still carries on a phone speaker, plus a short beater click. */
+function kick(delay = 0, vol = 0.8): void {
+  tone(210, 0.12, 'sine', vol, 75, delay);
+  tone(2200, 0.02, 'triangle', vol * 0.35, 300, delay);
 }
 
 /** Distorted power chord: root + fifth + octave, each slightly detuned for width. */
 function powerChord(root: number, dur: number, vol: number, delay = 0): void {
-  for (const ratio of [1, 1.5, 2]) {
-    tone(root * ratio, dur, 'sawtooth', vol, undefined, delay, true);
-    tone(root * ratio * 1.006, dur, 'sawtooth', vol, undefined, delay, true);
-  }
+  for (const ratio of [1, 1.5, 2]) tone(root * ratio, dur, 'sawtooth', vol, undefined, delay, true);
+  tone(root * 1.007, dur, 'sawtooth', vol, undefined, delay, true); // a little width
 }
 
 /** Cymbal-ish crash: high-passed noise that fades out. */
@@ -95,7 +121,7 @@ function crash(dur: number, vol: number, delay = 0): void {
   const gain = ctx.createGain();
   src.buffer = noise;
   filter.type = 'highpass';
-  filter.frequency.value = 3000;
+  filter.frequency.value = 4500;
   gain.gain.setValueAtTime(vol, t);
   gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
   src.connect(filter).connect(gain).connect(master);
@@ -123,19 +149,19 @@ function swell(from: number, to: number, dur: number, type: OscillatorType, vol:
  * Death-metal-ish scream: a growling sawtooth that drops in pitch, shaped by two
  * vowel-like filters ("aaah"), plus a layer of noise, all through the amp.
  */
-function scream(delay: number, dur = 1.3): void {
+function scream(delay: number, dur = 1.1): void {
   if (!ctx || !amp || !noise || muted) return;
   const t = ctx.currentTime + delay;
   const out = ctx.createGain();
   out.gain.setValueAtTime(0.001, t);
-  out.gain.exponentialRampToValueAtTime(0.6, t + 0.06);
+  out.gain.exponentialRampToValueAtTime(0.22, t + 0.06);
   out.gain.exponentialRampToValueAtTime(0.001, t + dur);
   out.connect(amp);
 
   const osc = ctx.createOscillator();
   osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(330, t);
-  osc.frequency.exponentialRampToValueAtTime(130, t + dur);
+  osc.frequency.setValueAtTime(300, t);
+  osc.frequency.exponentialRampToValueAtTime(140, t + dur);
 
   // Fast wobble on the pitch = growl
   const lfo = ctx.createOscillator();
@@ -160,7 +186,7 @@ function scream(delay: number, dur = 1.3): void {
   hiss.buffer = noise;
   hissFilter.type = 'bandpass';
   hissFilter.frequency.value = 2200;
-  hissGain.gain.value = 0.5;
+  hissGain.gain.value = 0.18;
   hiss.connect(hissFilter).connect(hissGain).connect(out);
 
   osc.start(t); lfo.start(t); hiss.start(t, Math.random(), dur);
@@ -171,7 +197,7 @@ function scream(delay: number, dur = 1.3): void {
 
 /** Muted guitar chug when a finger lands; goes up a whole tone per finger. */
 export function blip(n: number): void {
-  tone(E2 * 2 ** ((n - 1) / 6), 0.12, 'sawtooth', 0.5, undefined, 0, true);
+  tone(ROOT * 2 ** ((n - 1) / 6), 0.12, 'sawtooth', 1, undefined, 0, true);
 }
 
 /** Double-kick roll for the countdown: 2 hits, then 4, then a machine-gun 8. */
@@ -184,21 +210,21 @@ export function tick(left: number): void {
 /** The normal result: kick + crash + a big power chord. */
 export function boom(): void {
   kick(0);
-  crash(1.0, 0.18);
-  powerChord(E2, 1.2, 0.14);
+  crash(0.9, 0.1);
+  powerChord(ROOT, 1.0, 0.1);
 }
 
 /** Elimination mode: a heavy chug that gets higher as fewer fingers remain. */
 export function elim(remaining: number): void {
-  const root = E2 * 2 ** ((8 - Math.min(remaining, 8)) / 6);
+  const root = ROOT * 2 ** ((8 - Math.min(remaining, 8)) / 6);
   kick(0);
-  powerChord(root, 0.22, 0.12);
+  powerChord(root, 0.22, 0.14);
 }
 
 /** The countdown fake-out: a sad downward dive. */
 export function fakeout(): void {
-  tone(500, 0.6, 'sawtooth', 0.45, 45, 0, true);
-  crash(0.4, 0.06);
+  tone(600, 0.6, 'sawtooth', 0.6, 80, 0, true);
+  crash(0.35, 0.08);
 }
 
 /** When the big hit lands in doom(), in ms after it starts. */
@@ -206,22 +232,22 @@ export const DOOM_HIT_MS = 1700;
 
 /**
  * "Everybody drinks" (~3 s): an accelerating blast-beat under a rising sweep, then a
- * crushing low chord, crash and a scream at DOOM_HIT_MS.
+ * crushing chord, crash and a scream at DOOM_HIT_MS.
  */
 export function doom(): void {
   const hit = DOOM_HIT_MS / 1000;
-  swell(110, 880, hit, 'sawtooth', 0.05);
+  swell(220, 1100, hit, 'sawtooth', 0.04);
   let t = 0;
   let gap = 0.22;
   while (t < hit - 0.05) {
     kick(t);
     t += gap;
-    gap = Math.max(0.045, gap * 0.93);
+    gap = Math.max(0.05, gap * 0.93);
   }
-  kick(hit, 1);
-  kick(hit + 0.1, 1);
-  powerChord(E2 / 2, 2.0, 0.16, hit);
-  powerChord(E2, 1.6, 0.12, hit);
-  crash(1.8, 0.28, hit);
+  kick(hit, 0.9);
+  kick(hit + 0.1, 0.9);
+  powerChord(ROOT / 2, 1.8, 0.1, hit);
+  powerChord(ROOT, 1.5, 0.09, hit);
+  crash(1.6, 0.14, hit);
   scream(hit);
 }

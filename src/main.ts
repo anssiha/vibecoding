@@ -341,6 +341,7 @@ document.addEventListener('touchmove', e => e.preventDefault(), { passive: false
 const sheet = document.getElementById('sheet')!;
 const modeChips = document.getElementById('modeChips')!;
 const modeNote = document.getElementById('modeNote')!;
+const soundChips = document.getElementById('soundChips')!;
 const drinkChips = document.getElementById('drinkChips')!;
 const amountChips = document.getElementById('amountChips')!;
 
@@ -358,7 +359,18 @@ const MODES: { id: GameMode; label: string; note: string }[] = [
   { id: 'elimination', label: '🤘 Viimeinen pystyssä', note: 'Sormia putoaa yksi kerrallaan. Viimeinen pystyssä juo.' },
 ];
 
+const SOUND_TESTS: { label: string; play: () => void }[] = [
+  { label: '☝️ Sormi', play: () => blip(3) },
+  { label: '🥁 Rummut', play: () => { tick(3); setTimeout(() => tick(2), 1000); setTimeout(() => tick(1), 2000); } },
+  { label: '💥 Tulos', play: boom },
+  { label: '👋 Putoaa', play: () => elim(4) },
+  { label: '😈 Ei vielä', play: fakeout },
+  { label: '☠️ Kaikki juovat', play: doom },
+];
+
 function renderSettings(): void {
+  soundChips.replaceChildren(...SOUND_TESTS.map(t =>
+    chip(t.label, false, () => { unlockAudio(); t.play(); })));
   modeChips.replaceChildren(...MODES.map(m =>
     chip(m.label, settings.mode === m.id, () => {
       settings.mode = m.id;
