@@ -6,13 +6,24 @@
   <meta name="theme-color" content="#0d0d12">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>Sormipeli</title>
+  <title>Viimeinen Rokkari pystyssä</title>
 </head>
 <body>
   <div id="stage"></div>
   <div id="hud"></div>
   <div id="flash"></div>
-  <button id="mute" type="button" aria-label="Äänet päälle/pois">🔊</button>
+  <button id="settings" class="corner" type="button" aria-label="Asetukset">⚙️</button>
+  <button id="mute" class="corner" type="button" aria-label="Äänet päälle/pois">🔊</button>
+  <div id="sheet" hidden>
+    <div class="panel" role="dialog" aria-label="Asetukset">
+      <h2>Asetukset</h2>
+      <h3>Juoma <small>(valitse yksi tai useampi)</small></h3>
+      <div id="drinkChips" class="chips"></div>
+      <h3>Määrä</h3>
+      <div id="amountChips" class="chips"></div>
+      <button id="closeSheet" type="button">Valmis</button>
+    </div>
+  </div>
   <div id="foot">Juo vastuullisesti 🍻</div>
   <script type="module" src="/src/main.ts"></script>
 </body>

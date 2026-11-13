@@ -39,6 +39,8 @@ html, body {
   -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: shimmer 4s linear infinite;
 }
+/* Long start-screen title: smaller, wraps onto two lines on a phone */
+.title.logo { font-size: clamp(36px, 11vw, 80px); line-height: 1.05; letter-spacing: .01em; max-width: 12em; }
 @keyframes shimmer { to { background-position: 300% 0; } }
 
 .hint { margin-top: 12px; font-size: clamp(18px, 5vw, 26px); color: var(--muted); }
@@ -95,11 +97,42 @@ html, body {
   text-align: center; font-size: 13px; color: var(--muted); pointer-events: none;
 }
 
-#mute {
+.corner {
   position: fixed;
-  top: max(12px, env(safe-area-inset-top)); right: 12px;
+  top: max(12px, env(safe-area-inset-top));
   width: 44px; height: 44px; border-radius: 50%;
   border: 1px solid #ffffff22; background: #ffffff10; color: var(--fg);
   font-size: 20px; cursor: pointer; z-index: 10;
 }
-body.playing #mute, body.playing #foot { opacity: 0; pointer-events: none; transition: opacity .3s; }
+#mute { right: 12px; }
+#settings { right: 64px; }
+body.playing .corner, body.playing #foot { opacity: 0; pointer-events: none; transition: opacity .3s; }
+
+#sheet {
+  position: fixed; inset: 0; z-index: 20;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: #000a;
+}
+#sheet[hidden] { display: none; }
+#sheet .panel {
+  width: 100%; max-width: 480px;
+  background: #1a1a24; border-radius: 20px 20px 0 0;
+  padding: 20px 20px max(20px, env(safe-area-inset-bottom));
+  animation: slideUp .25s ease-out;
+}
+@keyframes slideUp { from { transform: translateY(100%); } }
+#sheet h2 { font-size: 22px; margin-bottom: 8px; }
+#sheet h3 { font-size: 15px; margin: 16px 0 8px; color: var(--muted); font-weight: 600; }
+#sheet h3 small { font-weight: 400; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 10px 14px; border-radius: 999px;
+  border: 1px solid #ffffff22; background: #ffffff0d; color: var(--fg);
+  font-size: 16px; cursor: pointer;
+}
+.chip.on { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 700; }
+#closeSheet {
+  width: 100%; margin-top: 20px; padding: 14px; border: 0; border-radius: 14px;
+  background: linear-gradient(90deg, #ffb703, #ff2d4b); color: #fff;
+  font-size: 18px; font-weight: 800; cursor: pointer;
+}

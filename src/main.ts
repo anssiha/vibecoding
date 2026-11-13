@@ -1,6 +1,7 @@
 import confetti from 'canvas-confetti';
 import './style.css';
-import { blip, boom, fanfare, isMuted, setMuted, tick, unlockAudio } from './sound';
+import { blip, boom, doom, DOOM_HIT_MS, isMuted, setMuted, tick, unlockAudio } from './sound';
+import { AMOUNTS, DRINKS, loadSettings, rollServing, saveSettings } from './settings';
 
 const stage = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -9,9 +10,15 @@ const muteBtn = document.getElementById('mute') as HTMLButtonElement;
 
 const COLORS = ['#ffb703', '#3ad1ff', '#7cff6b', '#b14aed', '#ff7ae0', '#ff8a3d', '#4dffd2', '#fff35c', '#8f9bff', '#ff5ea8'];
 const SETTLE_MS = 1500; // fingers must stay put this long before the countdown
-const COUNT_FROM = 3;
-const EVERYONE_CHANCE = 0.08;
-const CHOOSE_CHANCE = 0.08;
+const COUNT_FROM = 3; // fixed countdown (seconds)
+
+type Special = 'everyone' | 'choose' | 'two';
+// Special results are rare (~10% of rounds in total) and never happen twice in a row.
+const SPECIALS: { kind: Special; chance: number }[] = [
+  { kind: 'everyone', chance: 0.04 },
+  { kind: 'choose', chance: 0.03 },
+  { kind: 'two', chance: 0.03 },
+];
 
 interface Finger {
   x: number;
@@ -31,13 +38,19 @@ let countTimer: number | undefined;
 let resetTimer: number | undefined;
 let colorIdx = 0;
 let mouseId = 0;
+let lastWasSpecial = false;
+const settings = loadSettings();
 
 // --- Helpers ---------------------------------------------------------------
 
 function setHud(html: string): void { hud.innerHTML = html; }
 
 function showIdle(): void {
-  setHud('<div class="title">SORMIPELI</div><div class="hint">Laittakaa sormet ruudulle!</div>');
+  setHud(
+    '<div class="title logo">Viimeinen Rokkari pystyssä</div>' +
+    '<div class="hint strong">Kuka juo?</div>' +
+    '<div class="hint">Laittakaa sormet ruudulle!</div>',
+  );
   document.body.classList.remove('playing');
 }
 
@@ -126,37 +139,71 @@ function burstAt(f: Finger, colors: string[], count = 120): void {
   });
 }
 
+function rollSpecial(fingerCount: number): Special | null {
+  if (lastWasSpecial) return null;
+  let r = Math.random();
+  for (const { kind, chance } of SPECIALS) {
+    if (r < chance) return kind === 'two' && fingerCount < 3 ? null : kind;
+    r -= chance;
+  }
+  return null;
+}
+
+function markWinner(f: Finger, text: string): void {
+  f.el.classList.add('winner');
+  const label = document.createElement('div');
+  label.className = 'label';
+  label.textContent = text;
+  f.el.appendChild(label);
+}
+
 function pickResult(): void {
   state = 'result';
   const list = [...fingers.values()];
-  const roll = Math.random();
+  const special = rollSpecial(list.length);
+  lastWasSpecial = special !== null;
   flashScreen();
   vibrate([200, 80, 200]);
 
-  if (roll < EVERYONE_CHANCE) {
-    list.forEach(f => {
-      f.el.classList.add('winner');
-      burstAt(f, [f.color, '#ffffff'], 60);
+  const pick = () => list[Math.floor(Math.random() * list.length)];
+  const winColors = ['#ff2d4b', '#ffb703', '#ffffff'];
+
+  if (special === 'everyone') {
+    const serving = rollServing(settings);
+    list.forEach(f => f.el.classList.add('winner'));
+    setHud(`<div class="title">KAIKKI JUOVAT!</div><div class="hint strong">${serving.detail}</div>`);
+    doom();
+    // Confetti lands on the big hit at the end of the build-up.
+    window.setTimeout(() => {
+      flashScreen();
+      vibrate([300, 100, 300]);
+      list.forEach(f => burstAt(f, [f.color, '#ffffff'], 60));
+      void confetti({ particleCount: 200, spread: 120, origin: { y: 0.9 }, disableForReducedMotion: true });
+    }, DOOM_HIT_MS);
+  } else if (special === 'two') {
+    const first = pick();
+    let second = pick();
+    while (second === first) second = pick();
+    list.forEach(f => { if (f !== first && f !== second) f.el.classList.add('loser'); });
+    [first, second].forEach(f => {
+      markWinner(f, rollServing(settings).label);
+      burstAt(f, winColors, 80);
     });
-    setHud('<div class="title">KAIKKI JUO!</div>');
-    fanfare();
-    void confetti({ particleCount: 200, spread: 120, origin: { y: 0.9 }, disableForReducedMotion: true });
-  } else {
-    const w = list[Math.floor(Math.random() * list.length)];
-    list.forEach(f => { if (f !== w) f.el.classList.add('loser'); });
-    w.el.classList.add('winner');
-    const label = document.createElement('div');
-    label.className = 'label';
-    if (roll < EVERYONE_CHANCE + CHOOSE_CHANCE) {
-      label.textContent = 'VALITSE!';
-      setHud('<div class="hint strong">Sinä saat valita kuka juo!</div>');
-    } else {
-      label.textContent = 'JUO!';
-      setHud('');
-    }
-    w.el.appendChild(label);
-    burstAt(w, ['#ff2d4b', '#ffb703', '#ffffff']);
+    setHud('<div class="title">KAKSI JUO!</div>');
     boom();
+  } else {
+    const w = pick();
+    const serving = rollServing(settings);
+    list.forEach(f => { if (f !== w) f.el.classList.add('loser'); });
+    if (special === 'choose') {
+      markWinner(w, 'VALITSE!');
+      setHud(`<div class="hint strong">Sinä saat valita kuka juo!<br>${serving.detail}</div>`);
+    } else {
+      markWinner(w, serving.label);
+      setHud(`<div class="hint strong">${serving.detail}</div>`);
+    }
+    boom();
+    burstAt(w, winColors);
   }
 
   // Mouse-only (desktop testing) has no "lift", so reset automatically.
@@ -229,5 +276,45 @@ window.addEventListener('keydown', e => { if (e.key === 'Escape') resetAll(); })
 window.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+// --- Settings sheet --------------------------------------------------------
+
+const sheet = document.getElementById('sheet')!;
+const drinkChips = document.getElementById('drinkChips')!;
+const amountChips = document.getElementById('amountChips')!;
+
+function chip(text: string, on: boolean, onClick: () => void): HTMLButtonElement {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'chip' + (on ? ' on' : '');
+  b.textContent = text;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+function renderSettings(): void {
+  drinkChips.replaceChildren(...DRINKS.map(d =>
+    chip(`${d.emoji} ${d.name}`, settings.drinks.includes(d.id), () => {
+      const has = settings.drinks.includes(d.id);
+      // Always keep at least one drink selected.
+      if (has && settings.drinks.length === 1) return;
+      settings.drinks = has ? settings.drinks.filter(x => x !== d.id) : [...settings.drinks, d.id];
+      saveSettings(settings);
+      renderSettings();
+    })));
+  amountChips.replaceChildren(...AMOUNTS.map(a =>
+    chip(a === 0 ? 'Arvo 1–5' : `${a} hörppy${a === 1 ? '' : 'ä'}`, settings.amount === a, () => {
+      settings.amount = a;
+      saveSettings(settings);
+      renderSettings();
+    })));
+}
+
+document.getElementById('settings')!.addEventListener('click', () => {
+  renderSettings();
+  sheet.hidden = false;
+});
+document.getElementById('closeSheet')!.addEventListener('click', () => { sheet.hidden = true; });
+sheet.addEventListener('click', e => { if (e.target === sheet) sheet.hidden = true; });
 
 showIdle();

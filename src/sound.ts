@@ -45,7 +45,57 @@ export function boom(): void {
   tone(784, 0.45, 'triangle', 0.15, undefined, 0.25);
 }
 
-/** Big fanfare for "everyone drinks". */
-export function fanfare(): void {
-  [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.3, 'square', 0.08, undefined, i * 0.11));
+/** When the big hit lands in doom(), in ms after it starts. */
+export const DOOM_HIT_MS = 1700;
+
+function swell(from: number, to: number, dur: number, type: OscillatorType, vol: number): void {
+  if (!ctx || muted) return;
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(from, t);
+  osc.frequency.exponentialRampToValueAtTime(to, t + dur);
+  gain.gain.setValueAtTime(0.001, t);
+  gain.gain.exponentialRampToValueAtTime(vol, t + dur);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur + 0.05);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + dur + 0.1);
+}
+
+function crash(dur: number, vol: number, delay: number): void {
+  if (!ctx || muted) return;
+  const len = Math.floor(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  const gain = ctx.createGain();
+  src.buffer = buf;
+  filter.type = 'highpass';
+  filter.frequency.value = 1500;
+  const t = ctx.currentTime + delay;
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.connect(filter).connect(gain).connect(ctx.destination);
+  src.start(t);
+}
+
+/**
+ * Dramatic "everyone drinks" sound (~3 s): a heartbeat that speeds up under a rising
+ * siren-like sweep, then a huge minor-chord hit with a crash at DOOM_HIT_MS.
+ */
+export function doom(): void {
+  const hit = DOOM_HIT_MS / 1000;
+  // Heartbeat that accelerates
+  [0, 0.45, 0.85, 1.2, 1.5].forEach(t => tone(70, 0.25, 'sine', 0.35, 40, t));
+  // Rising tension sweeps
+  swell(110, 880, hit, 'sawtooth', 0.07);
+  swell(220, 1320, hit, 'square', 0.03);
+  // The hit: deep drop + dark minor chord (A minor) + cymbal-ish crash
+  tone(110, 1.6, 'sawtooth', 0.22, 35, hit);
+  [220, 261.63, 329.63, 440].forEach(f => tone(f, 1.4, 'sawtooth', 0.09, undefined, hit));
+  crash(1.4, 0.25, hit);
 }
