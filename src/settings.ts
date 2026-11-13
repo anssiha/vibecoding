@@ -27,7 +27,7 @@ export interface Settings {
 }
 
 const KEY = 'sormipeli.settings';
-const DEFAULTS: Settings = { drinks: ['beer'], amount: 2 };
+const DEFAULTS: Settings = { drinks: ['shot'], amount: 2 };
 
 export function loadSettings(): Settings {
   try {

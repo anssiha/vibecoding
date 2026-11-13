@@ -312,6 +312,8 @@ function renderSettings(): void {
     })));
 }
 
+document.getElementById('version')!.textContent = __APP_VERSION__;
+
 document.getElementById('settings')!.addEventListener('click', () => {
   renderSettings();
   sheet.hidden = false;

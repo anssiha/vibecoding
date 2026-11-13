@@ -25,6 +25,7 @@
     </filter>
   </defs>
   <rect width="512" height="512" fill="url(#bg)"/>
+  <g transform="translate(256 256) scale(1.2) translate(-256 -252)">
   <!-- guitar pick (the main "finger" ring) -->
   <path d="M256 402C232 402 212 378 196 352C150 282 108 228 110 180C112 126 168 102 256 102C344 102 400 126 402 180C404 228 362 282 316 352C300 378 280 402 256 402Z" fill="#ff2d4b" fill-opacity=".16" stroke="url(#ring)" stroke-width="22" stroke-linejoin="round" filter="url(#glow)"/>
   <!-- soft red glow behind the glass -->
@@ -38,9 +39,5 @@
   <circle cx="258" cy="305" r="3.5" fill="#fff" opacity=".35"/>
   <path d="M212 192L229 300" stroke="#fff" stroke-width="8" stroke-linecap="round" opacity=".4"/>
   </g>
-  <!-- small fingers around -->
-  <circle cx="70" cy="104" r="22" fill="none" stroke="#3ad1ff" stroke-width="8" filter="url(#glow)"/>
-  <circle cx="446" cy="116" r="18" fill="none" stroke="#7cff6b" stroke-width="7" filter="url(#glow)"/>
-  <circle cx="436" cy="388" r="24" fill="none" stroke="#ffb703" stroke-width="8" filter="url(#glow)"/>
-  <circle cx="74" cy="356" r="16" fill="none" stroke="#b14aed" stroke-width="7" filter="url(#glow)"/>
+  </g>
 </svg>
