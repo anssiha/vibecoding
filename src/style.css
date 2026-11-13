@@ -1,0 +1,105 @@
+:root {
+  --bg: #0d0d12;
+  --fg: #f4f1ea;
+  --muted: #8a8796;
+  --red: #ff2d4b;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#stage { position: fixed; inset: 0; }
+
+#hud {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 24px;
+  pointer-events: none;
+}
+
+.title {
+  font-size: clamp(44px, 14vw, 96px);
+  font-weight: 900; letter-spacing: .04em;
+  background: linear-gradient(90deg, #ffb703, #ff2d4b, #b14aed, #ffb703);
+  background-size: 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmer 4s linear infinite;
+}
+@keyframes shimmer { to { background-position: 300% 0; } }
+
+.hint { margin-top: 12px; font-size: clamp(18px, 5vw, 26px); color: var(--muted); }
+.hint.strong { color: var(--fg); font-weight: 700; }
+
+.big {
+  font-size: clamp(90px, 40vw, 240px); font-weight: 900; line-height: 1;
+  opacity: .9;
+  animation: pop .9s ease-out;
+}
+@keyframes pop {
+  from { transform: scale(1.6); opacity: 0; }
+  30% { opacity: .9; }
+  to { transform: scale(1); }
+}
+
+.finger {
+  position: absolute;
+  width: 110px; height: 110px;
+  margin: -55px 0 0 -55px;
+  border-radius: 50%;
+  border: 6px solid var(--c);
+  box-shadow: 0 0 30px var(--c), inset 0 0 20px var(--c);
+  pointer-events: none;
+  animation: pulse 1.2s ease-in-out infinite, appear .25s ease-out;
+  transition: opacity .5s, transform .5s;
+}
+.finger::after {
+  content: ""; position: absolute; inset: 22px; border-radius: 50%;
+  background: var(--c); opacity: .35;
+}
+.counting .finger { animation-duration: .35s; }
+.finger.loser { opacity: 0; transform: scale(.3); }
+.finger.winner {
+  --c: var(--red);
+  animation: none;
+  transform: scale(1.6);
+  z-index: 2;
+}
+.finger .label {
+  position: absolute; left: 50%; top: -58px; transform: translateX(-50%);
+  white-space: nowrap; font-weight: 900; font-size: 30px;
+  color: var(--fg); text-shadow: 0 0 12px var(--red);
+}
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@keyframes appear { from { transform: scale(0); } }
+
+#flash { position: fixed; inset: 0; background: var(--red); opacity: 0; pointer-events: none; }
+#flash.on { animation: flash .6s ease-out; }
+@keyframes flash { from { opacity: .6; } to { opacity: 0; } }
+
+#foot {
+  position: fixed; bottom: max(16px, env(safe-area-inset-bottom)); left: 0; right: 0;
+  text-align: center; font-size: 13px; color: var(--muted); pointer-events: none;
+}
+
+#mute {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top)); right: 12px;
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid #ffffff22; background: #ffffff10; color: var(--fg);
+  font-size: 20px; cursor: pointer; z-index: 10;
+}
+body.playing #mute, body.playing #foot { opacity: 0; pointer-events: none; transition: opacity .3s; }
