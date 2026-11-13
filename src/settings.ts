@@ -21,20 +21,25 @@ export const DRINKS: Drink[] = [
 /** Amount in sips; 0 means a random 1-5 each round. */
 export const AMOUNTS = [1, 2, 3, 5, 0];
 
+export type GameMode = 'single' | 'elimination';
+
 export interface Settings {
   drinks: DrinkId[];
   amount: number;
+  /** single: one random finger drinks. elimination: fingers drop out one by one, the last one drinks. */
+  mode: GameMode;
 }
 
 const KEY = 'sormipeli.settings';
-const DEFAULTS: Settings = { drinks: ['shot'], amount: 2 };
+const DEFAULTS: Settings = { drinks: ['shot'], amount: 2, mode: 'single' };
 
 export function loadSettings(): Settings {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Settings> | null;
     const drinks = (raw?.drinks ?? []).filter(d => DRINKS.some(x => x.id === d));
     const amount = AMOUNTS.includes(raw?.amount ?? -1) ? raw!.amount! : DEFAULTS.amount;
-    return { drinks: drinks.length ? drinks : DEFAULTS.drinks, amount };
+    const mode: GameMode = raw?.mode === 'elimination' ? 'elimination' : 'single';
+    return { drinks: drinks.length ? drinks : DEFAULTS.drinks, amount, mode };
   } catch {
     return { ...DEFAULTS };
   }

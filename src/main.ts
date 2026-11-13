@@ -1,8 +1,9 @@
 import confetti from 'canvas-confetti';
 import './style.css';
 import { maybeShowUpdate, setBusyCheck } from './pwa';
-import { blip, boom, doom, DOOM_HIT_MS, isMuted, setMuted, tick, unlockAudio } from './sound';
-import { AMOUNTS, DRINKS, loadSettings, rollServing, saveSettings } from './settings';
+import { blip, boom, doom, DOOM_HIT_MS, elim, fakeout, isMuted, setMuted, tick, unlockAudio } from './sound';
+import { AMOUNTS, DRINKS, loadSettings, rollServing, saveSettings, type GameMode } from './settings';
+import { keepScreenAwake } from './wakelock';
 
 const stage = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -12,6 +13,8 @@ const muteBtn = document.getElementById('mute') as HTMLButtonElement;
 const COLORS = ['#ffb703', '#3ad1ff', '#7cff6b', '#b14aed', '#ff7ae0', '#ff8a3d', '#4dffd2', '#fff35c', '#8f9bff', '#ff5ea8'];
 const SETTLE_MS = 1500; // fingers must stay put this long before the countdown
 const COUNT_FROM = 3; // fixed countdown (seconds)
+const FAKEOUT_CHANCE = 0.1; // 1 countdown in 10 stops at 1 and starts over
+const ELIM_STEP_MS = 1400; // time between eliminations in elimination mode
 
 type Special = 'everyone' | 'choose' | 'two';
 // Special results are rare (~10% of rounds in total) and never happen twice in a row.
@@ -28,15 +31,18 @@ interface Finger {
   color: string;
   mouse: boolean;
   lifted: boolean;
+  /** Elimination mode: this finger has been knocked out. */
+  out: boolean;
 }
 
-type State = 'idle' | 'waiting' | 'counting' | 'result';
+type State = 'idle' | 'waiting' | 'counting' | 'eliminating' | 'result';
 
 const fingers = new Map<string, Finger>();
 let state: State = 'idle';
 let settleTimer: number | undefined;
 let countTimer: number | undefined;
 let resetTimer: number | undefined;
+let elimTimer: number | undefined;
 let colorIdx = 0;
 let mouseId = 0;
 let lastWasSpecial = false;
@@ -69,7 +75,8 @@ function flashScreen(): void {
 function clearTimers(): void {
   clearTimeout(settleTimer);
   clearInterval(countTimer);
-  settleTimer = countTimer = undefined;
+  clearTimeout(elimTimer);
+  settleTimer = countTimer = elimTimer = undefined;
   document.body.classList.remove('counting');
 }
 
@@ -85,7 +92,7 @@ function addFinger(id: string, x: number, y: number, mouse: boolean): void {
   el.style.left = x + 'px';
   el.style.top = y + 'px';
   stage.appendChild(el);
-  fingers.set(id, { x, y, el, color, mouse, lifted: false });
+  fingers.set(id, { x, y, el, color, mouse, lifted: false, out: false });
   document.body.classList.add('playing');
   vibrate(15);
   blip(fingers.size);
@@ -112,9 +119,10 @@ function fingersChanged(): void {
   settleTimer = window.setTimeout(startCountdown, SETTLE_MS);
 }
 
-function startCountdown(): void {
+function startCountdown(allowFake = true): void {
   state = 'counting';
   document.body.classList.add('counting');
+  const fake = allowFake && Math.random() < FAKEOUT_CHANCE;
   let left = COUNT_FROM;
   const show = () => {
     setHud(`<div class="big">${left}</div>`);
@@ -124,9 +132,58 @@ function startCountdown(): void {
   show();
   countTimer = window.setInterval(() => {
     left--;
-    if (left > 0) show();
-    else { clearTimers(); pickResult(); }
+    if (left > 0) { show(); return; }
+    clearTimers();
+    if (fake) fakeOut();
+    else if (settings.mode === 'elimination') startElimination();
+    else pickResult();
   }, 1000);
+}
+
+/** Stops the countdown at the last second and starts over (never twice in a row). */
+function fakeOut(): void {
+  fakeout();
+  vibrate([80, 60, 80]);
+  setHud('<div class="title shake">EI VIELÄ!</div><div class="hint">Vain vitsi 😈</div>');
+  // Kept in settleTimer so lifting/adding a finger cancels it like any other wait.
+  settleTimer = window.setTimeout(() => startCountdown(false), 1400);
+}
+
+// --- Elimination mode: "Viimeinen Rokkari pystyssä" ------------------------
+
+function startElimination(): void {
+  state = 'eliminating';
+  document.body.classList.add('counting');
+  setHud('<div class="hint strong">Putoamiskisa alkaa!</div>');
+  const step = () => {
+    const alive = [...fingers.values()].filter(f => !f.out);
+    if (alive.length <= 1) { finishLastStanding(alive[0]); return; }
+    const f = alive[Math.floor(Math.random() * alive.length)];
+    f.out = true;
+    f.el.classList.add('loser'); // fades away: this one is safe
+    const left = alive.length - 1;
+    vibrate(60);
+    elim(left);
+    setHud(left > 1
+      ? `<div class="big">${left}</div><div class="hint">jäljellä</div>`
+      : '<div class="hint strong">Viimeinen pystyssä…</div>');
+    elimTimer = window.setTimeout(step, ELIM_STEP_MS);
+  };
+  elimTimer = window.setTimeout(step, 800);
+}
+
+/** The finger that survived every round is the one who drinks. */
+function finishLastStanding(f: Finger): void {
+  state = 'result';
+  document.body.classList.remove('counting');
+  const serving = rollServing(settings);
+  flashScreen();
+  vibrate([200, 80, 200]);
+  markWinner(f, serving.label);
+  setHud(`<div class="title logo">VIIMEINEN PYSTYSSÄ JUO!</div><div class="hint strong">${serving.detail}</div>`);
+  boom();
+  burstAt(f, ['#ff2d4b', '#ffb703', '#ffffff']);
+  if ([...fingers.values()].every(x => x.mouse)) scheduleReset(3500);
 }
 
 function burstAt(f: Finger, colors: string[], count = 120): void {
@@ -231,7 +288,7 @@ function resetAll(): void {
 stage.addEventListener('pointerdown', e => {
   e.preventDefault();
   unlockAudio();
-  if (state === 'result') return;
+  if (state === 'result' || state === 'eliminating') return;
   if (e.pointerType === 'mouse') {
     // Desktop testing: each click adds a persistent fake finger.
     addFinger('m' + mouseId++, e.clientX, e.clientY, true);
@@ -254,7 +311,7 @@ function onUp(e: PointerEvent): void {
   const key = pointerKey(e);
   const f = fingers.get(key);
   if (!f) return;
-  if (state === 'result') {
+  if (state === 'result' || state === 'eliminating') {
     // Keep the circles visible until everyone has lifted.
     f.lifted = true;
     if ([...fingers.values()].every(x => x.lifted || x.mouse)) scheduleReset(1200);
@@ -282,6 +339,8 @@ document.addEventListener('touchmove', e => e.preventDefault(), { passive: false
 // --- Settings sheet --------------------------------------------------------
 
 const sheet = document.getElementById('sheet')!;
+const modeChips = document.getElementById('modeChips')!;
+const modeNote = document.getElementById('modeNote')!;
 const drinkChips = document.getElementById('drinkChips')!;
 const amountChips = document.getElementById('amountChips')!;
 
@@ -294,7 +353,19 @@ function chip(text: string, on: boolean, onClick: () => void): HTMLButtonElement
   return b;
 }
 
+const MODES: { id: GameMode; label: string; note: string }[] = [
+  { id: 'single', label: '🎯 Yksi juo', note: 'Arvonta valitsee yhden sormen, joka juo.' },
+  { id: 'elimination', label: '🤘 Viimeinen pystyssä', note: 'Sormia putoaa yksi kerrallaan. Viimeinen pystyssä juo.' },
+];
+
 function renderSettings(): void {
+  modeChips.replaceChildren(...MODES.map(m =>
+    chip(m.label, settings.mode === m.id, () => {
+      settings.mode = m.id;
+      saveSettings(settings);
+      renderSettings();
+    })));
+  modeNote.textContent = MODES.find(m => m.id === settings.mode)!.note;
   drinkChips.replaceChildren(...DRINKS.map(d =>
     chip(`${d.emoji} ${d.name}`, settings.drinks.includes(d.id), () => {
       const has = settings.drinks.includes(d.id);
@@ -323,4 +394,5 @@ sheet.addEventListener('click', e => { if (e.target === sheet) sheet.hidden = tr
 
 // Don't pop the update toast while fingers are on the screen.
 setBusyCheck(() => state !== 'idle');
+keepScreenAwake();
 showIdle();
